@@ -117,21 +117,22 @@ async function notifyUsers(message) {
             tls: { rejectUnauthorized: false },
         });
 
-        try {
-            for (const subscriber of results) {
+        for (const subscriber of results) {
+            try {
                 await transporter.sendMail({
                     from: process.env.EMAIL_USER,
                     to: subscriber.email,
                     subject: 'Chetumal Sales Alert',
                     text: message
                 });
+                console.log(`Email sent to ${subscriber.email}`);
+            } catch (error) {
+                console.error(`Error sending email to ${subscriber.email}:`, error);
             }
-            console.log('Emails sent successfully');
-        } catch (error) {
-            console.error('Error sending emails:', error);
         }
     });
 }
+
 
 // Schedule Exchange Rate Check (Every 12 Hours)
 setInterval(async () => {
@@ -143,7 +144,7 @@ setInterval(async () => {
     } catch (error) {
         console.error('Error fetching exchange rate:', error);
     }
-}, 12 * 60 * 60 * 1000);
+},  12 * 60 * 60 * 1000);
 
 // Start Server
 const PORT = process.env.PORT || 3000;
