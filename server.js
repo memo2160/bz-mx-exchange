@@ -1,6 +1,5 @@
 const express = require('express');
 const mysql = require('mysql2');
-const axios = require('axios');
 const nodemailer = require('nodemailer');
 const ejs = require('ejs');
 const bodyParser = require('body-parser');
@@ -8,6 +7,7 @@ const dotenv = require('dotenv');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
+const https = require('https'); // Import the https module
 
 dotenv.config();
 
@@ -22,7 +22,7 @@ app.use(helmet());
 
 // Rate limiting
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
+    windowMs: 15 * 60 * 1000,
     max: 100,
     message: 'Too many requests from this IP, please try again later.'
 });
@@ -48,20 +48,84 @@ db.getConnection((err) => {
     }
 });
 
+// Function to fetch exchange rates using the https module
+function getExchangeRate(callback) {
+    const options = {
+        hostname: 'api.freecurrencyapi.com',
+        path: '/v1/latest?base_currency=USD&target_currency=MXN&apikey=fca_live_gMvVwjVBWoBchVqQdKzWVhZS4HtK4yAYIWwKNM4a',
+        method: 'GET',
+    };
+
+    const req = https.request(options, (res) => {
+        let data = '';
+
+        res.on('data', (chunk) => {
+            data += chunk;
+        });
+
+        res.on('end', () => {
+            try {
+                const parsedData = JSON.parse(data);
+                console.log('Raw API Response:', parsedData); // Log the entire raw response
+
+                const usdToMxn = parsedData.data.MXN;
+
+                // Logging the exchange rates received
+                console.log(`Exchange rate fetched: USD/MXN = ${usdToMxn}`);
+
+                // Check if usdToMxn is a valid number before calculating BZD/MXN
+                if (isNaN(usdToMxn)) {
+                    console.error('Invalid USD/MXN exchange rate received.');
+                    callback(new Error('Invalid USD/MXN exchange rate received'), null);
+                    return;
+                }
+
+                // Fixed conversion rate for USD to BZD
+                const usdToBzd = 2.01;
+
+                // Calculate BZD/MXN rate using the fixed USD to BZD rate
+                const bzMxnRate = usdToBzd / usdToMxn;
+
+                // Logging the calculated BZD/MXN rate
+                console.log(`Calculated BZD/MXN rate: ${bzMxnRate}`);
+
+                callback(null, bzMxnRate);
+            } catch (error) {
+                console.error('Error parsing exchange rate data:', error);
+                callback(error, null);
+            }
+        });
+    });
+
+    req.on('error', (error) => {
+        console.error('Request error:', error);
+        callback(error, null);
+    });
+
+    req.end();
+}
+
 // Home Route (Fetch Exchange Rate)
-app.get('/', async (req, res) => {
+app.get('/', (req, res) => {
     let exchangeRateMessage = { text: 'Unable to fetch exchange rate.', color: 'gray' };
-    try {
-        const response = await axios.get('https://api.exchangerate-api.com/v4/latest/MXN');
-        const rate = response.data.rates.BZD;
+
+    console.log('Fetching exchange rate...');
+
+    getExchangeRate((error, rate) => {
+        if (error) {
+            console.error('Error fetching exchange rate:', error);
+            return res.render('index', { exchangeRateMessage });
+        }
+
         exchangeRateMessage = {
-            text: rate > 0.10 ? 'Good time to buy!' : 'Bad time to buy.',
-            color: rate > 0.10 ? 'green' : 'red'
+            text: rate > 0.095 ? 'Good time to buy!' : 'Bad time to buy.',
+            color: rate > 0.095 ? 'green' : 'red'
         };
-    } catch (error) {
-        console.error('Error fetching exchange rate:', error);
-    }
-    res.render('index', { exchangeRateMessage });
+
+        console.log(`Exchange rate fetched: ${rate}. Exchange rate message: ${exchangeRateMessage.text}`);
+
+        res.render('index', { exchangeRateMessage });
+    });
 });
 
 // Subscribe Route
@@ -71,13 +135,18 @@ app.post('/subscribe', [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         // If there are errors, show an error message
+        const errorMessage = errors.array()[0].msg;
+        console.log(`Subscription failed. Error: ${errorMessage}`);
+
         return res.render('index', {
             exchangeRateMessage: { text: 'Unable to fetch exchange rate.', color: 'gray' },
-            alertMessage: { text: errors.array()[0].msg, type: 'danger' }
+            alertMessage: { text: errorMessage, type: 'danger' }
         });
     }
 
     const email = req.body.email.trim(); // Get the email from the request body
+
+    console.log(`New subscription request: ${email}`);
 
     // Insert the email into the database
     db.query('INSERT INTO subscribers (email) VALUES (?)', [email], (err) => {
@@ -88,8 +157,10 @@ app.post('/subscribe', [
                 alertMessage: { text: 'Error inserting email into the database.', type: 'danger' }
             });
         }
-        
+
         // On successful insertion, display success message
+        console.log(`Email ${email} subscribed successfully!`);
+
         res.render('index', {
             exchangeRateMessage: { text: 'Subscribed successfully!', color: 'green' },
             alertMessage: { text: 'You have successfully subscribed!', type: 'success' }
@@ -97,9 +168,10 @@ app.post('/subscribe', [
     });
 });
 
-
 // Notify Users
 async function notifyUsers(message) {
+    console.log('Notifying users about exchange rate update...');
+
     db.query('SELECT email FROM subscribers', async (err, results) => {
         if (err) {
             console.error('Database error:', err);
@@ -119,6 +191,7 @@ async function notifyUsers(message) {
 
         for (const subscriber of results) {
             try {
+                console.log(`Sending email to ${subscriber.email}`);
                 await transporter.sendMail({
                     from: process.env.EMAIL_USER,
                     to: subscriber.email,
@@ -133,18 +206,22 @@ async function notifyUsers(message) {
     });
 }
 
-
 // Schedule Exchange Rate Check (Every 12 Hours)
-setInterval(async () => {
-    try {
-        const response = await axios.get('https://api.exchangerate-api.com/v4/latest/MXN');
-        const rate = response.data.rates.BZD;
-        const message = rate > 0.10 ? 'Good time to shop! MXN/BZD rate is favorable.' : 'Bad time to shop!';
+setInterval(() => {
+    console.log('Checking exchange rate...');
+
+    getExchangeRate((error, rate) => {
+        if (error) {
+            console.error('Error fetching exchange rate:', error);
+            return;
+        }
+
+        const message = rate > 0.095 ? 'Good time to shop! MXN/BZD rate is favorable.' : 'Bad time to shop!';
+        console.log(`Exchange rate check complete. Rate: ${rate}. Message: ${message}`);
+
         notifyUsers(message);
-    } catch (error) {
-        console.error('Error fetching exchange rate:', error);
-    }
-},  12 * 60 * 60 * 1000);
+    });
+}, 12 * 60 * 60 * 1000);
 
 // Start Server
 const PORT = process.env.PORT || 3000;
