@@ -136,6 +136,12 @@ app.get('/', (req, res) => {
     });
 });
 
+
+// Disclaimer Route
+app.get('/disclaimer', (req, res) => {
+    res.render('disclaimer'); // Renders the 'disclaimer.ejs' page
+});
+
 // Subscribe route: Handle subscription form submission
 app.post('/subscribe', [
     body('email').isEmail().normalizeEmail().withMessage('Invalid email format') // Validate email format
