@@ -5,165 +5,146 @@ const nodemailer = require('nodemailer');
 const ejs = require('ejs');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
-const fs = require('fs');
-const path = require('path');
-
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { body, validationResult } = require('express-validator');
 
 dotenv.config();
+
 const app = express();
 app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
 app.use(express.static('public'));
 
-// Database connection
-const db = mysql.createConnection({
-    host: "",
-    user: '',
-    password: '',
-    database: ''
+// Security middleware
+app.use(helmet());
+
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 100,
+    message: 'Too many requests from this IP, please try again later.'
+});
+app.use(limiter);
+
+// Database connection using a pool
+const db = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USERNAME,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
-
-db.connect(err => {
-    if (err) throw err;
-    console.log('Connected to MySQL');
+db.getConnection((err) => {
+    if (err) {
+        console.error('Database connection failed:', err);
+        process.exit(1);
+    } else {
+        console.log('Connected to MySQL');
+    }
 });
 
-
-// Create views/index.ejs file if it doesn't exist
-const ejsFilePath = path.join(__dirname, 'views', 'index.ejs');
-if (!fs.existsSync(ejsFilePath)) {
-    fs.writeFileSync(ejsFilePath, `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sales Alert Subscription</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-    <div class="container mt-5">
-        <h2 class="text-center">Subscribe for Sales Alerts</h2>
-        <form id="subscribeForm" class="mt-3">
-            <div class="mb-3">
-                <label for="email" class="form-label">Email address</label>
-                <input type="email" class="form-control" id="email" name="email" required>
-            </div>
-            <button type="submit" class="btn btn-primary">Subscribe</button>
-        </form>
-        <div id="successMessage" class="alert alert-success mt-3" style="display: none;">Subscribed successfully!</div>
-        
-        <!-- Exchange Rate Alert -->
-        <div id="exchangeRateMessage" class="alert mt-4 text-center" style="color: <%= exchangeRateMessage.color %>; font-weight: bold;">
-            <%= exchangeRateMessage.text %>
-        </div>
-    </div>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            $('#subscribeForm').submit(function(event) {
-                event.preventDefault();
-                $.post('/subscribe', { email: $('#email').val() }, function(response) {
-                    if (response.success) {
-                        $('#successMessage').show().delay(3000).fadeOut();
-                        $('#subscribeForm')[0].reset();
-                    } else {
-                        alert(response.message);
-                    }
-                });
-            });
-        });
-    </script>
-</body>
-</html>
-    `);
-}
-
-// Home Route
+// Home Route (Fetch Exchange Rate)
 app.get('/', async (req, res) => {
-    let exchangeRateMessage = '';
+    let exchangeRateMessage = { text: 'Unable to fetch exchange rate.', color: 'gray' };
     try {
         const response = await axios.get('https://api.exchangerate-api.com/v4/latest/MXN');
         const rate = response.data.rates.BZD;
-        if (rate > 0.10) {
-            exchangeRateMessage = { text: 'Good time to buy!', color: 'green' };
-        } else {
-            exchangeRateMessage = { text: 'Bad time to buy.', color: 'red' };
-        }
+        exchangeRateMessage = {
+            text: rate > 0.10 ? 'Good time to buy!' : 'Bad time to buy.',
+            color: rate > 0.10 ? 'green' : 'red'
+        };
     } catch (error) {
-        console.error('Error fetching exchange rate', error);
-        exchangeRateMessage = { text: 'Unable to fetch exchange rate.', color: 'gray' };
+        console.error('Error fetching exchange rate:', error);
     }
     res.render('index', { exchangeRateMessage });
 });
 
-// Save email to database
-app.post('/subscribe', (req, res) => {
-    const email = req.body.email;
-    if (email) {
-        db.query('INSERT INTO subscribers (email) VALUES (?)', [email], (err) => {
-            if (err) throw err;
-            res.json({ success: true, message: 'Subscribed successfully!' });
+// Subscribe Route
+app.post('/subscribe', [
+    body('email').isEmail().normalizeEmail().withMessage('Invalid email format')
+], (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        // If there are errors, show an error message
+        return res.render('index', {
+            exchangeRateMessage: { text: 'Unable to fetch exchange rate.', color: 'gray' },
+            alertMessage: { text: errors.array()[0].msg, type: 'danger' }
         });
-    } else {
-        res.json({ success: false, message: 'Please enter an email' });
     }
-});
 
+    const email = req.body.email.trim(); // Get the email from the request body
 
-app.get('/disclaimer', (req, res) => {
-    res.render('disclaimer');
-});
-
-
-// Function to check MXN to BZD rate
-async function checkExchangeRate() {
-    try {
-        const response = await axios.get('https://api.exchangerate-api.com/v4/latest/MXN');
-        const rate = response.data.rates.BZD;
-        if (rate > 0.10) {
-            notifyUsers('Good time to shop! MXN/BZD rate is favorable.');
-        }else{
-            notifyUsers('Bad time to shop! MXN/BZD rate is not favorable.');
-        }
-    } catch (error) {
-        console.error('Error fetching exchange rate', error);
-    }
-}
-
-// Send notifications to subscribers
-function notifyUsers(message) {
-    db.query('SELECT email FROM subscribers', (err, results) => {
-        if (err) throw err;
-        let transporter = nodemailer.createTransport({
-            host: 'mail.privateemail.com',
-            port: 587, // or 587
-            secure: false, // For port 465, secure connection is enabled
-            auth: {
-              user: "", // Your Namecheap email address
-              pass: "", // Your Namecheap email password
-            },
-            tls: {
-              rejectUnauthorized: false, // Disables certificate validation
-            },
-          });
-        results.forEach(subscriber => {
-            let mailOptions = {
-                from: "no-reply@holdyah.com",
-                to: subscriber.email,
-                subject: 'Chetumal Sales Alert',
-                text: message
-            };
-            transporter.sendMail(mailOptions, (error) => {
-                if (error) console.error('Error sending email', error);
+    // Insert the email into the database
+    db.query('INSERT INTO subscribers (email) VALUES (?)', [email], (err) => {
+        if (err) {
+            console.error('Database insertion error:', err);
+            return res.render('index', {
+                exchangeRateMessage: { text: 'Unable to fetch exchange rate.', color: 'gray' },
+                alertMessage: { text: 'Error inserting email into the database.', type: 'danger' }
             });
+        }
+        
+        // On successful insertion, display success message
+        res.render('index', {
+            exchangeRateMessage: { text: 'Subscribed successfully!', color: 'green' },
+            alertMessage: { text: 'You have successfully subscribed!', type: 'success' }
         });
+    });
+});
+
+
+// Notify Users
+async function notifyUsers(message) {
+    db.query('SELECT email FROM subscribers', async (err, results) => {
+        if (err) {
+            console.error('Database error:', err);
+            return;
+        }
+
+        const transporter = nodemailer.createTransport({
+            host: 'mail.privateemail.com',
+            port: 587,
+            secure: false,
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            },
+            tls: { rejectUnauthorized: false },
+        });
+
+        try {
+            for (const subscriber of results) {
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: subscriber.email,
+                    subject: 'Chetumal Sales Alert',
+                    text: message
+                });
+            }
+            console.log('Emails sent successfully');
+        } catch (error) {
+            console.error('Error sending emails:', error);
+        }
     });
 }
 
-// Schedule checks (every 12 hours)
-setInterval(checkExchangeRate, 12 * 60 * 60 * 1000);
-//setInterval(checkExchangeRate, 1 * 60 * 1000); // Check every 5 minutes
+// Schedule Exchange Rate Check (Every 12 Hours)
+setInterval(async () => {
+    try {
+        const response = await axios.get('https://api.exchangerate-api.com/v4/latest/MXN');
+        const rate = response.data.rates.BZD;
+        const message = rate > 0.10 ? 'Good time to shop! MXN/BZD rate is favorable.' : 'Bad time to shop!';
+        notifyUsers(message);
+    } catch (error) {
+        console.error('Error fetching exchange rate:', error);
+    }
+}, 12 * 60 * 60 * 1000);
+
+// Start Server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

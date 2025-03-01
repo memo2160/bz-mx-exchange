@@ -19,47 +19,35 @@
         .alert {
             font-size: 0.9rem; /* Adjust alert text size */
         }
-        /* Ensure the container is responsive */
         .container {
-            max-width: 500px; /* Set a max width */
-            margin: 0 auto; /* Center the container */
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .alert-message {
+            display: none; /* Hide the message by default */
         }
     </style>
 </head>
 <body>
     <div class="container mt-5">
-        <h2 class="text-center">Subscribe for BZ/MX Excahange Alerts</h2>
-        <form id="subscribeForm" class="mt-3">
+        <h2 class="text-center">Subscribe for BZ/MX Exchange Alerts</h2>
+        <form action="/subscribe" method="POST" id="subscribeForm" class="mt-3">
             <div class="mb-3">
                 <label for="email" class="form-label">Email address</label>
                 <input type="email" class="form-control" id="email" name="email" required>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Subscribe</button> <!-- Full width button -->
+            <button type="submit" class="btn btn-primary w-100">Subscribe</button>
         </form>
-        <div id="successMessage" class="alert alert-success mt-3" style="display: none;">Subscribed successfully!</div>
-        
-        <!-- Exchange Rate Alert -->
+
+        <!-- Success or Error Message -->
+        <div id="alertMessage" class="alert alert-dismissible mt-3 alert-message" role="alert">
+            <span id="alertText"></span>
+        </div>
+
         <div id="exchangeRateMessage" class="alert mt-4 text-center" style="color: <%= exchangeRateMessage.color %>; font-weight: bold;">
             <%= exchangeRateMessage.text %>
         </div>
         <a href="/disclaimer" class="btn btn-link">Read Disclaimer</a>
-
     </div>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            $('#subscribeForm').submit(function(event) {
-                event.preventDefault();
-                $.post('/subscribe', { email: $('#email').val() }, function(response) {
-                    if (response.success) {
-                        $('#successMessage').show().delay(3000).fadeOut();
-                        $('#subscribeForm')[0].reset();
-                    } else {
-                        alert(response.message);
-                    }
-                });
-            });
-        });
-    </script>
 </body>
 </html>
