@@ -182,6 +182,46 @@ app.post('/subscribe', [
     });
 });
 
+
+app.post('/unsubscribe', [
+    body('email').isEmail().normalizeEmail().withMessage('Invalid email format')
+], (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.render('index', {
+            exchangeRateMessage: { text: 'Unable to fetch exchange rate.', color: 'gray' },
+            alertMessage: { text: errors.array()[0].msg, type: 'danger' }
+        });
+    }
+
+    const email = req.body.email.trim();
+
+    console.log(`Unsubscribe request for: ${email}`);
+
+    db.query('DELETE FROM subscribers WHERE email = ?', [email], (err, result) => {
+        if (err) {
+            console.error('Database deletion error:', err);
+            return res.render('index', {
+                exchangeRateMessage: { text: 'Unable to fetch exchange rate.', color: 'gray' },
+                alertMessage: { text: 'Error removing email from the database.', type: 'danger' }
+            });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.render('index', {
+                exchangeRateMessage: { text: 'Unable to fetch exchange rate.', color: 'gray' },
+                alertMessage: { text: 'Email not found in the subscription list.', type: 'warning' }
+            });
+        }
+
+        console.log(`Email ${email} unsubscribed successfully!`);
+        res.render('index', {
+            exchangeRateMessage: { text: 'Subscription removed!', color: 'green' },
+            alertMessage: { text: 'You have successfully unsubscribed.', type: 'success' }
+        });
+    });
+});
+
 // Function to send email notifications to users about exchange rate updates
 async function notifyUsers(message) {
     console.log('Notifying users about exchange rate update...');
