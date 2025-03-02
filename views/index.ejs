@@ -8,14 +8,21 @@
     <style>
         body {
             background-color: #f8f9fa;
+            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+        }
+        .image-container {
+            background: url('/images/mexico-image.jpg') center/cover no-repeat;
+            height: 100%;
+            min-height: 300px;
+            border-radius: 10px;
         }
         .card {
-            max-width: 400px;
-            width: 100%;
             padding: 20px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
@@ -25,20 +32,32 @@
     </style>
 </head>
 <body>
-    <div class="card text-center">
-        <h2 class="mb-3">BZ/MX Exchange Alerts</h2>
-        <form action="/subscribe" method="POST" class="mb-3">
-            <input type="email" class="form-control mb-2" name="email" placeholder="Enter email to subscribe" required>
-            <button type="submit" class="btn btn-primary">Subscribe</button>
-        </form>
-        <form action="/unsubscribe" method="POST" class="mb-3">
-            <input type="email" class="form-control mb-2" name="email" placeholder="Enter email to unsubscribe" required>
-            <button type="submit" class="btn btn-outline-danger">Unsubscribe</button>
-        </form>
-        <div class="alert text-center" style="color: <%= exchangeRateMessage.color %>; font-weight: bold;">
-            <%= exchangeRateMessage.text %>
+    <div class="container">
+        <div class="row g-4">
+            <!-- Image Section -->
+            <div class="col-md-6 d-none d-md-block">
+                <div class="image-container w-100"></div>
+            </div>
+
+            <!-- Subscription Form -->
+            <div class="col-md-6">
+                <div class="card text-center">
+                    <h2 class="mb-3">BZ/MX Exchange Alerts</h2>
+                    <form action="/subscribe" method="POST" class="mb-3">
+                        <input type="email" class="form-control mb-2" name="email" placeholder="Enter email to subscribe" required>
+                        <button type="submit" class="btn btn-primary">Subscribe</button>
+                    </form>
+                    <form action="/unsubscribe" method="POST" class="mb-3">
+                        <input type="email" class="form-control mb-2" name="email" placeholder="Enter email to unsubscribe" required>
+                        <button type="submit" class="btn btn-outline-danger">Unsubscribe</button>
+                    </form>
+                    <div class="alert text-center" style="color: <%= exchangeRateMessage.color %>; font-weight: bold;">
+                        <%= exchangeRateMessage.text %>
+                    </div>
+                    <a href="/disclaimer" class="btn btn-link">Read Disclaimer</a>
+                </div>
+            </div>
         </div>
-        <a href="/disclaimer" class="btn btn-link">Read Disclaimer</a>
     </div>
 </body>
 </html>
