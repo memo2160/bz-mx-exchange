@@ -29,6 +29,11 @@
         .btn {
             width: 100%;
         }
+        .partner-logo {
+            max-width: 120px; /* Limits logo size */
+            height: auto;
+            padding: 10px;
+        }
     </style>
 </head>
 <body>
@@ -51,12 +56,28 @@
                         <input type="email" class="form-control mb-2" name="email" placeholder="Enter email to unsubscribe" required>
                         <button type="submit" class="btn btn-outline-danger">Unsubscribe</button>
                     </form>
-                    <div class="alert text-center" style="color: <%= exchangeRateMessage.color %>; font-weight: bold;">
+                    <div class="alert text-center" style="<%= 'color:' + exchangeRateMessage.color %>; font-weight: bold;">
                         <%= exchangeRateMessage.text %>
                     </div>
                     <a href="/disclaimer" class="btn btn-link">Read Disclaimer</a>
                 </div>
             </div>
+        </div>
+
+        <!-- Partner Section -->
+        <div class="row g-4 mt-4 text-center">
+            
+            <div class="col-12">
+                <h4 class="mb-3">Our Partners</h4>
+                <a href="https://wise.prf.hn/click/camref:1011l4ou27" target="_blank" rel="noopener noreferrer">
+                    <img src="/images/wise-logo.png" alt="Wise Money Transfer" class="partner-logo">
+                </a>
+                <a href="https://tiqets.tp.st/cWNvVEJO" target="_blank" rel="noopener noreferrer">
+                    <img src="/images/tiqets-logo.png" alt="Wise Money Transfer" class="partner-logo">
+                </a>
+                
+            </div>
+            
         </div>
     </div>
 </body>
