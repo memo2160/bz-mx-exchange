@@ -126,7 +126,7 @@ app.get('/', (req, res) => {
 
         // Determine if it is a good or bad time to shop based on the exchange rate
         exchangeRateMessage = {
-            text: rate > 0.095 ? 'Good time to buy!' : 'Bad time to buy.',
+            text: rate > 0.095 ? 'Good time to visit Mexico!' : 'Bad time to visit Mexico.',
             color: rate > 0.095 ? 'green' : 'red'
         };
 
@@ -228,7 +228,7 @@ app.get('/robots.txt', (req, res) => {
     res.send(`User-agent: *
 Disallow:
 
-Sitemap: https://yourdomain.com/sitemap.xml`);
+Sitemap: https://ex.holdyah.com/sitemap.xml`);
 });
 
 
@@ -266,7 +266,7 @@ async function notifyUsers(message) {
                 await transporter.sendMail({
                     from: process.env.EMAIL_USER,
                     to: subscriber.email,
-                    subject: 'Chetumal Sales Alert',
+                    subject: 'BZ-MX Exchange Alert',
                     text: message // The message content
                 });
                 console.log(`Email sent to ${subscriber.email}`);
@@ -287,7 +287,7 @@ setInterval(() => {
             return;
         }
 
-        const message = rate > 0.095 ? 'Good time to shop! MXN/BZD rate is favorable.' : 'Bad time to shop!';
+        const message = rate > 0.095 ? 'Good time to visit Mexico! MXN/BZD rate is favorable.' : 'Bad time to shop!';
         console.log(`Exchange rate check complete. Rate: ${rate}. Message: ${message}`);
 
         // Notify users about the exchange rate status
