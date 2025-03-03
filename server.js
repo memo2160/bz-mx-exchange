@@ -222,6 +222,15 @@ app.post('/unsubscribe', [
     });
 });
 
+
+app.get('/robots.txt', (req, res) => {
+    res.type('text/plain');
+    res.send(`User-agent: *
+Disallow:
+
+Sitemap: https://yourdomain.com/sitemap.xml`);
+});
+
 // Function to send email notifications to users about exchange rate updates
 async function notifyUsers(message) {
     console.log('Notifying users about exchange rate update...');
