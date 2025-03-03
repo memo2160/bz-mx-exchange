@@ -34,10 +34,12 @@
             margin-bottom: 20px;
         }
     </style>
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
+    <%- include('partials/menu') %>
     <div class="container">
-        <h1>BZ/MX Exchange Alert - Disclaimer</h1>
+        <%- include('partials/holdyah-logo') %>
         
         <div class="section">
             <h2>Informational Purpose Only</h2>
@@ -68,11 +70,17 @@
             <h2>Indemnification</h2>
             <p>By using this tool, you agree that we are not liable for any financial consequences resulting from your use of the provided information.</p>
         </div>
+
+        <div class="section">
+            <h2>Our Partner Services</h2>
+            <p>Holdyah is not responsible for any issues, claims, or damages arising from the use of services provided by our partners. The companies we partner with, including but not limited to Wise, tiqets, Airalo, and Trip Booking, are independent entities with their own terms and conditions. Any concerns or issues related to their services must be addressed directly with the respective partner. We encourage users to review the terms and policies of each partner before engaging with their services. Holdyah is not liable for any actions or omissions of our partners.</p>
+        </div>
         
         <div class="section">
             <h2>Conclusion</h2>
             <p>We hope this tool helps you stay informed about exchange rates. However, always conduct due diligence and consult financial professionals before making decisions.</p>
         </div>
     </div>
+    <script src="./menu-toggle.js"></script>
 </body>
 </html>

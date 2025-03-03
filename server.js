@@ -31,6 +31,18 @@ const limiter = rateLimit({
 });
 app.use(limiter); // Apply the rate limiter middleware
 
+// Create a transporter for sending emails using Nodemailer
+const transporter = nodemailer.createTransport({
+    host: 'mail.privateemail.com',
+    port: 587,
+    secure: false,
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+    },
+    tls: { rejectUnauthorized: false },
+});
+
 // Database connection using a connection pool
 const db = mysql.createPool({
     host: process.env.DB_HOST, // Database host from environment variables
@@ -232,6 +244,23 @@ Sitemap: https://ex.holdyah.com/sitemap.xml`);
 });
 
 
+app.get('/about', (req, res) => {
+    res.render('about');  // Renders the 'about.ejs' file (you will create this below)
+});
+
+app.get('/tool', (req, res) => {
+    res.render('tool');  // This will render exchangeRateAlert.ejs from the views folder
+});
+
+// Route to render the contact page
+app.get("/contact", (req, res) => {
+    res.render("contact");
+});
+
+
+
+
+
 app.use((req, res) => {
     res.status(404).render('404', { url: req.originalUrl });
 });
@@ -247,17 +276,7 @@ async function notifyUsers(message) {
             return;
         }
 
-        // Create a transporter for sending emails using Nodemailer
-        const transporter = nodemailer.createTransport({
-            host: 'mail.privateemail.com',
-            port: 587,
-            secure: false,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            },
-            tls: { rejectUnauthorized: false },
-        });
+        
 
         // Loop through each subscriber and send them an email
         for (const subscriber of results) {

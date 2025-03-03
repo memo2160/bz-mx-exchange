@@ -1,0 +1,79 @@
+body {
+    background-color: #f8f9fa;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.container {
+    max-width: 900px;
+    padding-top: 20px;
+}
+.holdyah-logo {
+    max-width: 180px;
+    height: auto;
+}
+.image-container {
+    background: url('/images/mexico-image.jpg') center/cover no-repeat;
+    height: 100%;
+    min-height: 300px;
+    border-radius: 10px;
+}
+.card {
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+.btn {
+    width: 100%;
+}
+.partner-logo {
+    max-width: 120px;
+    height: auto;
+    padding: 10px;
+}
+#holdyah {
+    font-family: 'Lilita One', sans-serif;
+    color: #ed6e28;
+}
+#holdyah-box {
+    padding-bottom: 10px;
+}
+/* Off-screen menu */
+.offscreen-menu {
+    position: fixed;
+    top: 0;
+    right: -250px;
+    width: 250px;
+    height: 100%;
+    background: #343a40;
+    color: white;
+    transition: right 0.3s ease-in-out;
+    padding-top: 60px;
+    z-index: 1000;
+}
+.offscreen-menu a {
+    display: block;
+    color: white;
+    padding: 10px 20px;
+    text-decoration: none;
+    font-size: 18px;
+}
+.offscreen-menu a:hover {
+    background: #495057;
+}
+.menu-toggle {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    background: #ed6e28;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+    z-index: 1100;
+}
+/* Menu open class */
+.menu-open {
+    right: 0 !important;
+}
