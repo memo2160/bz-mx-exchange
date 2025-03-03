@@ -8,139 +8,293 @@ const dotenv = require('dotenv');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
-const https = require('https');
+const https = require('https'); // Import the https module for secure HTTP requests
 
 // Load environment variables from a .env file
 dotenv.config();
 
 // Create an Express application
 const app = express();
-app.set('view engine', 'ejs');
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.json());
-app.use(express.static('public'));
+app.set('view engine', 'ejs'); // Set EJS as the view engine for rendering views
+app.use(bodyParser.urlencoded({ extended: true })); // Middleware to parse URL-encoded data
+app.use(express.json()); // Middleware to parse JSON data
+app.use(express.static('public')); // Serve static files from the 'public' folder
+
+// Security middleware to add security headers
 app.use(helmet());
 
-// Enforce canonical URLs
-app.use((req, res, next) => {
-    if (!req.secure && process.env.NODE_ENV === 'production') {
-        return res.redirect(`https://${req.headers.host}${req.url}`);
-    }
-    next();
-});
-
-// Set up rate limiting
+// Set up rate limiting to prevent abuse by limiting the number of requests
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    message: 'Too many requests, try again later.'
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Maximum 100 requests per 15 minutes
+    message: 'Too many requests from this IP, please try again later.' // Error message when limit is exceeded
 });
-app.use(limiter);
+app.use(limiter); // Apply the rate limiter middleware
 
-// Database connection
+// Database connection using a connection pool
 const db = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USERNAME,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
+    host: process.env.DB_HOST, // Database host from environment variables
+    user: process.env.DB_USERNAME, // Database username from environment variables
+    password: process.env.DB_PASSWORD, // Database password from environment variables
+    database: process.env.DB_NAME, // Database name from environment variables
+    waitForConnections: true, // Wait for an available connection before starting a new one
+    connectionLimit: 10, // Maximum number of connections in the pool
+    queueLimit: 0 // Unlimited queue length
 });
 
+// Test the database connection on server startup
 db.getConnection((err) => {
     if (err) {
         console.error('Database connection failed:', err);
-        process.exit(1);
+        process.exit(1); // Exit if database connection fails
+    } else {
+        console.log('Connected to MySQL');
     }
-    console.log('Connected to MySQL');
 });
 
-// Fetch exchange rate
+// Function to fetch the USD to MXN exchange rate from an API
 function getExchangeRate(callback) {
     const options = {
-        hostname: 'api.freecurrencyapi.com',
-        path: `/v1/latest?base_currency=USD&target_currency=MXN&apikey=${process.env.CURRENCY_API_KEY}`,
-        method: 'GET',
+        hostname: 'api.freecurrencyapi.com', // API endpoint for fetching exchange rates
+        path: '/v1/latest?base_currency=USD&target_currency=MXN&apikey=fca_live_gMvVwjVBWoBchVqQdKzWVhZS4HtK4yAYIWwKNM4a', // API request URL
+        method: 'GET', // HTTP method (GET)
     };
-    
+
     const req = https.request(options, (res) => {
         let data = '';
-        res.on('data', (chunk) => data += chunk);
+
+        // Handle incoming data
+        res.on('data', (chunk) => {
+            data += chunk;
+        });
+
+        // When the response ends, parse the data
         res.on('end', () => {
             try {
-                const parsedData = JSON.parse(data);
-                const usdToMxn = parsedData.data.MXN;
-                if (isNaN(usdToMxn)) return callback(new Error('Invalid exchange rate'), null);
-                callback(null, 2.01 / usdToMxn);
+                const parsedData = JSON.parse(data); // Parse the JSON response
+                console.log('Raw API Response:', parsedData); // Log the raw response
+
+                const usdToMxn = parsedData.data.MXN; // Extract the USD to MXN rate
+
+                // Logging the exchange rates received
+                console.log(`Exchange rate fetched: USD/MXN = ${usdToMxn}`);
+
+                // Check if the rate is valid before proceeding
+                if (isNaN(usdToMxn)) {
+                    console.error('Invalid USD/MXN exchange rate received.');
+                    callback(new Error('Invalid USD/MXN exchange rate received'), null);
+                    return;
+                }
+
+                // Fixed conversion rate for USD to BZD (Belize Dollar)
+                const usdToBzd = 2.01;
+
+                // Calculate BZD to MXN exchange rate
+                const bzMxnRate = usdToBzd / usdToMxn;
+
+                // Logging the calculated BZD/MXN rate
+                console.log(`Calculated BZD/MXN rate: ${bzMxnRate}`);
+
+                // Return the BZD/MXN rate to the callback
+                callback(null, bzMxnRate);
             } catch (error) {
+                console.error('Error parsing exchange rate data:', error);
                 callback(error, null);
             }
         });
     });
-    
-    req.on('error', (error) => callback(error, null));
-    req.end();
+
+    req.on('error', (error) => {
+        console.error('Request error:', error); // Handle request errors
+        callback(error, null); // Return the error to the callback
+    });
+
+    req.end(); // End the request
 }
 
-// Routes
+// Home route: Fetch and display exchange rate status
 app.get('/', (req, res) => {
+    let exchangeRateMessage = { text: 'Unable to fetch exchange rate.', color: 'gray' };
+
+    console.log('Fetching exchange rate...');
+
     getExchangeRate((error, rate) => {
-        const message = rate ? (rate > 0.095 ? 'Good time to buy!' : 'Bad time to buy.') : 'Unable to fetch rate.';
-        res.render('index', { exchangeRateMessage: { text: message, color: rate > 0.095 ? 'green' : 'red' } });
+        if (error) {
+            console.error('Error fetching exchange rate:', error);
+            return res.render('index', { exchangeRateMessage });
+        }
+
+        // Determine if it is a good or bad time to shop based on the exchange rate
+        exchangeRateMessage = {
+            text: rate > 0.095 ? 'Good time to buy!' : 'Bad time to buy.',
+            color: rate > 0.095 ? 'green' : 'red'
+        };
+
+        console.log(`Exchange rate fetched: ${rate}. Exchange rate message: ${exchangeRateMessage.text}`);
+
+        res.render('index', { exchangeRateMessage }); // Render the index page with the exchange rate message
     });
 });
 
-app.get('/disclaimer', (req, res) => res.render('disclaimer'));
 
-app.post('/subscribe', [body('email').isEmail().normalizeEmail().withMessage('Invalid email')], (req, res) => {
+// Disclaimer Route
+app.get('/disclaimer', (req, res) => {
+    res.render('disclaimer'); // Renders the 'disclaimer.ejs' page
+});
+
+// Subscribe route: Handle subscription form submission
+app.post('/subscribe', [
+    body('email').isEmail().normalizeEmail().withMessage('Invalid email format') // Validate email format
+], (req, res) => {
+    const errors = validationResult(req); // Check for validation errors
+    if (!errors.isEmpty()) {
+        // If there are validation errors, display an error message
+        const errorMessage = errors.array()[0].msg;
+        console.log(`Subscription failed. Error: ${errorMessage}`);
+
+        return res.render('index', {
+            exchangeRateMessage: { text: 'Unable to fetch exchange rate.', color: 'gray' },
+            alertMessage: { text: errorMessage, type: 'danger' }
+        });
+    }
+
+    const email = req.body.email.trim(); // Get the email from the request body
+
+    console.log(`New subscription request: ${email}`);
+
+    // Insert the email into the database
+    db.query('INSERT INTO subscribers (email) VALUES (?)', [email], (err) => {
+        if (err) {
+            console.error('Database insertion error:', err);
+            return res.render('index', {
+                exchangeRateMessage: { text: 'Unable to fetch exchange rate.', color: 'gray' },
+                alertMessage: { text: 'Error inserting email into the database.', type: 'danger' }
+            });
+        }
+
+        // On successful insertion, display a success message
+        console.log(`Email ${email} subscribed successfully!`);
+
+        res.render('index', {
+            exchangeRateMessage: { text: 'Subscribed successfully!', color: 'green' },
+            alertMessage: { text: 'You have successfully subscribed!', type: 'success' }
+        });
+    });
+});
+
+
+app.post('/unsubscribe', [
+    body('email').isEmail().normalizeEmail().withMessage('Invalid email format')
+], (req, res) => {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.render('index', { alertMessage: { text: errors.array()[0].msg, type: 'danger' } });
-    
-    db.query('INSERT INTO subscribers (email) VALUES (?)', [req.body.email.trim()], (err) => {
-        const message = err ? 'Error saving email' : 'Successfully subscribed';
-        res.render('index', { alertMessage: { text: message, type: err ? 'danger' : 'success' } });
+    if (!errors.isEmpty()) {
+        return res.render('index', {
+            exchangeRateMessage: { text: 'Unable to fetch exchange rate.', color: 'gray' },
+            alertMessage: { text: errors.array()[0].msg, type: 'danger' }
+        });
+    }
+
+    const email = req.body.email.trim();
+
+    console.log(`Unsubscribe request for: ${email}`);
+
+    db.query('DELETE FROM subscribers WHERE email = ?', [email], (err, result) => {
+        if (err) {
+            console.error('Database deletion error:', err);
+            return res.render('index', {
+                exchangeRateMessage: { text: 'Unable to fetch exchange rate.', color: 'gray' },
+                alertMessage: { text: 'Error removing email from the database.', type: 'danger' }
+            });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.render('index', {
+                exchangeRateMessage: { text: 'Unable to fetch exchange rate.', color: 'gray' },
+                alertMessage: { text: 'Email not found in the subscription list.', type: 'warning' }
+            });
+        }
+
+        console.log(`Email ${email} unsubscribed successfully!`);
+        res.render('index', {
+            exchangeRateMessage: { text: 'Subscription removed!', color: 'green' },
+            alertMessage: { text: 'You have successfully unsubscribed.', type: 'success' }
+        });
     });
 });
+
 
 app.get('/robots.txt', (req, res) => {
     res.type('text/plain');
-    res.send(`User-agent: *\nDisallow:\nSitemap: https://${process.env.DOMAIN}/sitemap.xml`);
+    res.send(`User-agent: *
+Disallow:
+
+Sitemap: https://yourdomain.com/sitemap.xml`);
 });
 
-app.use((req, res) => res.status(404).render('404', { url: req.originalUrl }));
 
-// Notify users
+app.use((req, res) => {
+    res.status(404).render('404', { url: req.originalUrl });
+});
+
+
+// Function to send email notifications to users about exchange rate updates
 async function notifyUsers(message) {
+    console.log('Notifying users about exchange rate update...');
+
     db.query('SELECT email FROM subscribers', async (err, results) => {
-        if (err) return console.error('Database error:', err);
-        
+        if (err) {
+            console.error('Database error:', err);
+            return;
+        }
+
+        // Create a transporter for sending emails using Nodemailer
         const transporter = nodemailer.createTransport({
             host: 'mail.privateemail.com',
             port: 587,
             secure: false,
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-            tls: { rejectUnauthorized: false }
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            },
+            tls: { rejectUnauthorized: false },
         });
-        
-        for (const { email } of results) {
+
+        // Loop through each subscriber and send them an email
+        for (const subscriber of results) {
             try {
-                await transporter.sendMail({ from: process.env.EMAIL_USER, to: email, subject: 'Chetumal Sales Alert', text: message });
-                console.log(`Email sent to ${email}`);
+                console.log(`Sending email to ${subscriber.email}`);
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: subscriber.email,
+                    subject: 'Chetumal Sales Alert',
+                    text: message // The message content
+                });
+                console.log(`Email sent to ${subscriber.email}`);
             } catch (error) {
-                console.error(`Error sending email to ${email}:`, error);
+                console.error(`Error sending email to ${subscriber.email}:`, error);
             }
         }
     });
 }
 
-// Schedule exchange rate check
+// Schedule a task to check exchange rates every 12 hours and notify users
 setInterval(() => {
-    getExchangeRate((error, rate) => {
-        if (!error) notifyUsers(rate > 0.095 ? 'Good time to shop!' : 'Bad time to shop!');
-    });
-}, 12 * 60 * 60 * 1000);
+    console.log('Checking exchange rate...');
 
-// Start server
+    getExchangeRate((error, rate) => {
+        if (error) {
+            console.error('Error fetching exchange rate:', error);
+            return;
+        }
+
+        const message = rate > 0.095 ? 'Good time to shop! MXN/BZD rate is favorable.' : 'Bad time to shop!';
+        console.log(`Exchange rate check complete. Rate: ${rate}. Message: ${message}`);
+
+        // Notify users about the exchange rate status
+        notifyUsers(message);
+    });
+}, 12 * 60 * 60 * 1000); // Every 12 hours
+
+// Start the Express server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
