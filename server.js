@@ -231,6 +231,12 @@ Disallow:
 Sitemap: https://yourdomain.com/sitemap.xml`);
 });
 
+
+app.use((req, res) => {
+    res.status(404).render('404', { url: req.originalUrl });
+});
+
+
 // Function to send email notifications to users about exchange rate updates
 async function notifyUsers(message) {
     console.log('Notifying users about exchange rate update...');
