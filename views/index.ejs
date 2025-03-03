@@ -5,16 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Exchange Rate Alerts</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap" rel="stylesheet">
     <style>
         body {
             background-color: #f8f9fa;
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
         }
         .container {
             max-width: 900px;
+            padding-top: 20px;
+        }
+        .holdyah-logo {
+            max-width: 180px;
+            height: auto;
         }
         .image-container {
             background: url('/images/mexico-image.jpg') center/cover no-repeat;
@@ -30,21 +36,31 @@
             width: 100%;
         }
         .partner-logo {
-            max-width: 120px; /* Limits logo size */
+            max-width: 120px;
             height: auto;
             padding: 10px;
+        }
+        #holdyah {
+            font-family: 'Lilita One', sans-serif;
+            color: #ed6e28;
+        }
+        #holdyah-box {
+            padding-bottom: 10px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container text-center pt-4">
+        <div id="holdyah-box">
+            <h1 id="holdyah" class="d-inline">HOLDYAH</h1>
+            <h3 class="d-inline"> Exchange</h3>
+        </div>
+
         <div class="row g-4">
-            <!-- Image Section -->
             <div class="col-md-6 d-none d-md-block">
                 <div class="image-container w-100"></div>
             </div>
 
-            <!-- Subscription Form -->
             <div class="col-md-6">
                 <div class="card text-center">
                     <h2 class="mb-3">BZ/MX Exchange Alerts</h2>
@@ -64,20 +80,16 @@
             </div>
         </div>
 
-        <!-- Partner Section -->
         <div class="row g-4 mt-4 text-center">
-            
             <div class="col-12">
                 <h4 class="mb-3">Our Partners</h4>
                 <a href="https://wise.prf.hn/click/camref:1011l4ou27" target="_blank" rel="noopener noreferrer">
-                    <img src="/images/wise-logo.png" alt="Wise Money Transfer" class="partner-logo">
+                    <img src="/images/wise-logo.png" alt="Wise Money Transfer" class="partner-logo mx-2">
                 </a>
                 <a href="https://tiqets.tp.st/cWNvVEJO" target="_blank" rel="noopener noreferrer">
-                    <img src="/images/tiqets-logo.png" alt="Wise Money Transfer" class="partner-logo">
+                    <img src="/images/tiqets-logo.png" alt="Tiqets" class="partner-logo mx-2">
                 </a>
-                
             </div>
-            
         </div>
     </div>
 </body>
