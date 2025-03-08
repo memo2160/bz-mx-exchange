@@ -1,11 +1,11 @@
 // Import required modules
 const express = require('express');
 const mysql = require('mysql2');
-const nodemailer = require('nodemailer');
 const ejs = require('ejs');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
+const sgMail = require('@sendgrid/mail');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 const https = require('https'); // Import the https module for secure HTTP requests
@@ -15,6 +15,7 @@ dotenv.config();
 
 // Create an Express application
 const app = express();
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 app.set('view engine', 'ejs'); // Set EJS as the view engine for rendering views
 app.use(bodyParser.urlencoded({ extended: true })); // Middleware to parse URL-encoded data
 app.use(express.json()); // Middleware to parse JSON data
@@ -31,17 +32,6 @@ const limiter = rateLimit({
 });
 app.use(limiter); // Apply the rate limiter middleware
 
-// Create a transporter for sending emails using Nodemailer
-const transporter = nodemailer.createTransport({
-    host: 'mail.privateemail.com',
-    port: 587,
-    secure: false,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-    },
-    tls: { rejectUnauthorized: false },
-});
 
 // Database connection using a connection pool
 const db = mysql.createPool({
@@ -266,7 +256,6 @@ app.use((req, res) => {
 });
 
 
-// Function to send email notifications to users about exchange rate updates
 async function notifyUsers(message) {
     console.log('Notifying users about exchange rate update...');
 
@@ -276,18 +265,16 @@ async function notifyUsers(message) {
             return;
         }
 
-        
-
-        // Loop through each subscriber and send them an email
         for (const subscriber of results) {
             try {
                 console.log(`Sending email to ${subscriber.email}`);
-                await transporter.sendMail({
-                    from: process.env.EMAIL_USER,
+                const msg = {
                     to: subscriber.email,
+                    from: process.env.EMAIL_USER, // Must be a verified sender in SendGrid
                     subject: 'BZ-MX Exchange Alert',
-                    text: message // The message content
-                });
+                    text: message
+                };
+                await sgMail.send(msg);
                 console.log(`Email sent to ${subscriber.email}`);
             } catch (error) {
                 console.error(`Error sending email to ${subscriber.email}:`, error);
