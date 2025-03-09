@@ -271,8 +271,12 @@ async function notifyUsers(message) {
                 const msg = {
                     to: subscriber.email,
                     from: process.env.EMAIL_USER, // Must be a verified sender in SendGrid
-                    subject: 'BZ-MX Exchange Alert',
-                    text: message
+                    templateId: process.env.SENDGRID_TEMPLATE_ID, // SendGrid dynamic template ID
+                    dynamicTemplateData: {
+                        subject: 'BZ-MX Exchange Alert',
+                        exchange_rate_message: message,
+                        unsubscribe_url: 'https://ex.holdyah.com/'
+                    }
                 };
                 await sgMail.send(msg);
                 console.log(`Email sent to ${subscriber.email}`);
