@@ -22,7 +22,20 @@ app.use(express.json()); // Middleware to parse JSON data
 app.use(express.static('public')); // Serve static files from the 'public' folder
 
 // Security middleware to add security headers
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https:", "http:"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https:", "http:"],
+        imgSrc: ["'self'", "data:", "https:", "http:"],
+        connectSrc: ["'self'", "https:", "http:"],
+      },
+    },
+  })
+);
+
 
 // Set up rate limiting to prevent abuse by limiting the number of requests
 const limiter = rateLimit({
