@@ -5,7 +5,6 @@ const ejs = require('ejs');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
-const sgMail = require('@sendgrid/mail');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 const https = require('https'); // Import the https module for secure HTTP requests
@@ -15,7 +14,6 @@ dotenv.config();
 
 // Create an Express application
 const app = express();
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 app.set('view engine', 'ejs'); // Set EJS as the view engine for rendering views
 app.use(bodyParser.urlencoded({ extended: true })); // Middleware to parse URL-encoded data
 app.use(express.json()); // Middleware to parse JSON data
@@ -105,7 +103,7 @@ function getExchangeRate(callback) {
                 const usdToBzd = 2.01;
 
                 // Calculate BZD to MXN exchange rate
-                const bzMxnRate = usdToBzd / usdToMxn;
+                const bzMxnRate =  usdToMxn / usdToBzd;
 
                 // Logging the calculated BZD/MXN rate
                 console.log(`Calculated BZD/MXN rate: ${bzMxnRate}`);
@@ -269,8 +267,73 @@ app.use((req, res) => {
 });
 
 
-async function notifyUsers(message) {
+function sendSMTP2GOTemplateEmail(to, subject, templateData) {
+    return new Promise((resolve, reject) => {
+        const payload = JSON.stringify({
+            api_key: process.env.SMT2PGO_API_KEY,
+            to: [to],
+            sender: process.env.EMAIL_USER,
+            subject: subject,
+            template_id: process.env.SMTP2GO_EMAIL_NOTIFICATION,
+            template_data: templateData
+        });
+
+        const options = {
+            hostname: 'api.smtp2go.com',
+            path: '/v3/email/send',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload)
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let data = '';
+
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    const response = JSON.parse(data);
+                    if (response.data && response.data.succeeded > 0) {
+                        resolve(response);
+                    } else {
+                        reject(response);
+                    }
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+
+        req.on('error', reject);
+        req.write(payload);
+        req.end();
+    });
+}
+
+
+
+
+
+async function notifyUsers(rate) {
     console.log('Notifying users about exchange rate update...');
+
+    const messageText =
+        rate > 0.095
+            ? 'Good time to visit Mexico!'
+            : 'Bad time to visit Mexico.';
+
+    const now = new Date();
+
+    const templateData = {
+        FROM_CURRENCY: 'BZD',
+        TO_CURRENCY: 'MXN',
+        RATE: rate.toFixed(4),
+        DATE: now.toLocaleDateString('en-GB'),
+        TIME: now.toLocaleTimeString('en-GB'),
+        MESSAGE: messageText
+    };
 
     db.query('SELECT email FROM subscribers', async (err, results) => {
         if (err) {
@@ -281,24 +344,19 @@ async function notifyUsers(message) {
         for (const subscriber of results) {
             try {
                 console.log(`Sending email to ${subscriber.email}`);
-                const msg = {
-                    to: subscriber.email,
-                    from: process.env.EMAIL_USER, // Must be a verified sender in SendGrid
-                    templateId: process.env.SENDGRID_TEMPLATE_ID, // SendGrid dynamic template ID
-                    dynamicTemplateData: {
-                        subject: 'BZ-MX Exchange Alert',
-                        exchange_rate_message: message,
-                        unsubscribe_url: 'https://ex.holdyah.com/'
-                    }
-                };
-                await sgMail.send(msg);
+                await sendSMTP2GOTemplateEmail(
+                    subscriber.email,
+                    'BZ ↔ MX Exchange Rate Alert',
+                    templateData
+                );
                 console.log(`Email sent to ${subscriber.email}`);
             } catch (error) {
-                console.error(`Error sending email to ${subscriber.email}:`, error);
+                console.error(`Failed sending to ${subscriber.email}`, error);
             }
         }
     });
 }
+
 
 // Schedule a task to check exchange rates every 12 hours and notify users
 setInterval(() => {
@@ -310,13 +368,13 @@ setInterval(() => {
             return;
         }
 
-        const message = rate > 0.095 ? 'Good time to visit Mexico! MXN/BZD rate is favorable.' : 'Bad time to shop!';
-        console.log(`Exchange rate check complete. Rate: ${rate}. Message: ${message}`);
+        console.log(`Exchange rate check complete. Rate: ${rate}`);
 
-        // Notify users about the exchange rate status
-        notifyUsers(message);
+        // Notify users (SMTP2GO template uses rate)
+        notifyUsers(rate);
     });
-}, 12 * 60 * 60 * 1000); // Every 12 hours
+}, 2 * 60 * 1000); // Every 2 minutes (TESTING)
+//12 * 60 * 60 * 1000); // Every 12 hours
 
 // Start the Express server
 const PORT = process.env.PORT || 3000;
