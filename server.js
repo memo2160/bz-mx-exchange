@@ -373,8 +373,8 @@ setInterval(() => {
         // Notify users (SMTP2GO template uses rate)
         notifyUsers(rate);
     });
-}, 2 * 60 * 1000); // Every 2 minutes (TESTING)
-//12 * 60 * 60 * 1000); // Every 12 hours
+},12 * 60 * 60 * 1000); // Every 12 hours// 2 * 60 * 1000); // Every 2 minutes (TESTING)
+//
 
 // Start the Express server
 const PORT = process.env.PORT || 3000;
