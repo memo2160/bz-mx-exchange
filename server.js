@@ -12,6 +12,17 @@ const https = require('https'); // Import the https module for secure HTTP reque
 // Load environment variables from a .env file
 dotenv.config();
 
+
+// ================= CACHE =================
+let exchangeRateCache = {
+    rate: null,
+    lastUpdated: null,
+    checksToday: 0,
+    day: new Date().toDateString()
+};
+
+const MAX_CHECKS_PER_DAY = 3;
+
 // Create an Express application
 const app = express();
 app.set('view engine', 'ejs'); // Set EJS as the view engine for rendering views
@@ -125,13 +136,57 @@ function getExchangeRate(callback) {
     req.end(); // End the request
 }
 
+function getCachedExchangeRate(callback) {
+    const today = new Date().toDateString();
+
+    // Reset daily counter
+    if (exchangeRateCache.day !== today) {
+        exchangeRateCache = {
+            rate: null,
+            lastUpdated: null,
+            checksToday: 0,
+            day: today
+        };
+    }
+
+    // Use cache if available or limit reached
+    if (
+        exchangeRateCache.rate !== null &&
+        exchangeRateCache.checksToday >= MAX_CHECKS_PER_DAY
+    ) {
+        console.log('Using cached exchange rate');
+        return callback(null, exchangeRateCache.rate);
+    }
+
+    // Fetch new rate
+    console.log('Fetching NEW exchange rate from API');
+
+    getExchangeRate((error, rate) => {
+        if (error) {
+            // Fallback to cache if API fails
+            if (exchangeRateCache.rate !== null) {
+                console.warn('API failed, using cached rate');
+                return callback(null, exchangeRateCache.rate);
+            }
+            return callback(error);
+        }
+
+        exchangeRateCache.rate = rate;
+        exchangeRateCache.lastUpdated = new Date();
+        exchangeRateCache.checksToday++;
+
+        callback(null, rate);
+    });
+}
+
+
 // Home route: Fetch and display exchange rate status
 app.get('/', (req, res) => {
     let exchangeRateMessage = { text: 'Unable to fetch exchange rate.', color: 'gray' };
 
     console.log('Fetching exchange rate...');
 
-    getExchangeRate((error, rate) => {
+    getCachedExchangeRate((error, rate) => {
         if (error) {
             console.error('Error fetching exchange rate:', error);
             return res.render('index', { exchangeRateMessage });
@@ -362,7 +417,7 @@ async function notifyUsers(rate) {
 setInterval(() => {
     console.log('Checking exchange rate...');
 
-    getExchangeRate((error, rate) => {
+    getCachedExchangeRate((error, rate) => {
         if (error) {
             console.error('Error fetching exchange rate:', error);
             return;
