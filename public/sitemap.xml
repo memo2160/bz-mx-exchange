@@ -1,37 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset
-      xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-      xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
-            http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-<!-- created with Free Online Sitemap Generator www.xml-sitemaps.com -->
+<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
 
+  <!-- Main Site Pages -->
+  <url>
+    <loc>https://holdyah.com/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.00</priority>
+  </url>
 
-<url>
-  <loc>https://ex.holdyah.com/</loc>
-  <lastmod>2025-03-03T21:49:35+00:00</lastmod>
-  <priority>1.00</priority>
-</url>
-<url>
-  <loc>https://ex.holdyah.com/about</loc>
-  <lastmod>2025-03-03T21:49:35+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>https://ex.holdyah.com/tool</loc>
-  <lastmod>2025-03-03T21:49:35+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>https://ex.holdyah.com/disclaimer</loc>
-  <lastmod>2025-03-03T21:49:35+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
-<url>
-  <loc>https://ex.holdyah.com/contact</loc>
-  <lastmod>2025-03-03T21:49:35+00:00</lastmod>
-  <priority>0.80</priority>
-</url>
+  <url>
+    <loc>https://holdyah.com/about-us</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.80</priority>
+  </url>
 
+  <url>
+    <loc>https://holdyah.com/what-is-this-tool</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.80</priority>
+  </url>
+
+  <url>
+    <loc>https://holdyah.com/disclaimer</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.72</priority>
+  </url>
+
+  <url>
+    <loc>https://holdyah.com/contact</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.72</priority>
+  </url>
 
 </urlset>
