@@ -17,7 +17,12 @@
         <%- include('partials/holdyah-logo') %>
         <div class="row g-4">
             <div class="col-md-6 d-none d-md-block">
-                <div class="image-container w-100" alt="Real-time BZ to MX exchange rates"></div>
+                <!-- Modern image format with fallback and lazy loading -->
+                <picture>
+                    <source srcset="/assets/exchange-rate.webp" type="image/webp">
+                    <source srcset="/assets/exchange-rate.avif" type="image/avif">
+                    <img src="/assets/exchange-rate.png" alt="Real-time BZ to MX exchange rates" class="w-100" loading="lazy">
+                </picture>
             </div>
             <div class="col-md-6">
                 <div class="card text-center">
